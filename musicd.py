@@ -36,6 +36,34 @@ class PlayRequest(BaseModel):
     query: str
 
 
+class SearchRequest(BaseModel):
+    query: str
+
+# Função para buscar no YouTube
+def search_list(query: str, max_results: int = 5) -> list:
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "quiet": True,
+        "default_search": "ytsearch",
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(f"ytsearch{max_results}:{query}", download=False)
+        tracks = []
+        if "entries" in info:
+            for entry in info["entries"]:
+                tracks.append({
+                    "title": entry.get("title"),
+                    "webpage_url": entry.get("webpage_url"),
+                    "duration": entry.get("duration"),
+                    "artist": entry.get("uploader"),
+                })
+        return tracks
+
+@app.post("/search")
+async def search(req: SearchRequest):
+    results = search_list(req.query)
+    return {"ok": True, "results": results}
+
 # Função para buscar no YouTube
 def search_youtube(query: str) -> dict:
     ydl_opts = {

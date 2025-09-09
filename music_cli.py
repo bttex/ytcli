@@ -13,6 +13,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.live import Live
 
 app = typer.Typer(help="Cliente CLI para Music Daemon (yt-dlp + mpv)")
 console = Console()
@@ -166,6 +168,90 @@ def queue_add(
     if resp.get("ok"):
         console.print("[green]✅ Música adicionada à fila[/green]")
         pretty_track(resp.get("item"))
+
+
+@app.command()
+def search(ctx: typer.Context, query: str = typer.Argument(..., help="Pesquisa no YouTube Music")):
+    """Busca por músicas e as adiciona à fila"""
+    api = MusicAPI(**ctx.obj)
+    resp = api.post("/search", {"query": query})
+    if not resp.get("ok"):
+        console.print("[red]❌ Erro na busca.[/red]")
+        return
+    results = resp.get("results", [])
+    if not results:
+        console.print("[dim]Nenhum resultado encontrado.[/dim]")
+        return
+    
+    # Exibe os resultados em uma tabela Rich
+    table = Table(title="Resultados da busca")
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Título", style="cyan", no_wrap=True)
+    table.add_column("Artista", style="magenta", no_wrap=True)
+    table.add_column("Duração", style="dim", width=10)
+    for i, t in enumerate(results, start=1):
+        table.add_row(
+            str(i),
+            t.get("title", "—"),
+            t.get("artist", t.get("uploader", "—")),
+            str(t.get("duration", "—")),
+        )
+    console.print(table)
+    
+    # Pede ao usuário para escolher um item
+    try:
+        choice = Prompt.ask("Selecione um número para tocar/adicionar à fila", choices=[str(i) for i in range(1, len(results) + 1)])
+        selected_track = results[int(choice) - 1]
+        
+        # Usa o endpoint `/play` para tocar imediatamente
+        resp = api.post("/play", {"query": selected_track["webpage_url"]})
+        if resp.get("ok"):
+            console.print("[green]▶ Tocando agora[/green]")
+            pretty_track(resp.get("track"))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Ação cancelada.[/yellow]")
+
+@app.command()
+def monitor(ctx: typer.Context):
+    """Monitora o status do reprodutor em tempo real (Ctrl+C para sair)"""
+    api = MusicAPI(**ctx.obj)
+    with Live(auto_refresh=False) as live:
+        try:
+            while True:
+                resp = api.get("/status")
+                now = resp.get("now")
+                queue = resp.get("queue", [])
+                
+                # Renderiza o status
+                output = ""
+                if now:
+                    output += f"[bold green]▶ Agora tocando[/bold green]\n"
+                    # Aqui você pode usar uma função para formatar a saída
+                    output += f"🎵 [cyan]{now.get('title')}[/cyan] — [magenta]{now.get('artist')}[/magenta]\n"
+                else:
+                    output += "[dim]Nada tocando[/dim]\n"
+                
+                output += f"\n[blue]Tamanho da fila:[/blue] {len(queue)}\n"
+                
+                # Formata a fila em uma tabela
+                if queue:
+                    table = Table(title="Fila de reprodução")
+                    table.add_column("#", style="dim", width=4)
+                    table.add_column("Título", style="cyan")
+                    table.add_column("Artista", style="magenta")
+                    for i, t in enumerate(queue, start=1):
+                        table.add_row(
+                            str(i),
+                            t.get("title", "—"),
+                            t.get("artist", t.get("uploader", "—")),
+                        )
+                    output += str(table)
+                
+                live.update(output)
+                live.refresh()
+                time.sleep(2) # Atualiza a cada 2 segundos
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Saindo do monitor.[/yellow]")
 
 
 @app.command("queue-list")
