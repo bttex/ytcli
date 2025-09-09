@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ytcli"
+version = "0.1.0"
+description = "CLI e daemon para tocar músicas do YouTube Music com MPV"
+authors = [{name = "Seu Nome"}]
+dependencies = [
+    "typer[all]==0.9.0",
+    "rich==13.7.0",
+    "requests==2.31.0",
+    "fastapi==0.109.0",
+    "uvicorn==0.23.2",
+    "yt-dlp",
+    "python-mpv==1.0.8",
+    "textual",
+    "asyncio"
+    
+]
+
+[project.scripts]
+music_cli = "music_cli:app"
+musicd = "musicd:main"
+music_tui = "music_tui:MusicTUI"
+
+[tool.setuptools]
+py-modules = ["music_cli", "musicd", "music_tui"]
