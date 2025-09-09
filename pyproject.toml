@@ -23,7 +23,7 @@ dependencies = [
 [project.scripts]
 music_cli = "music_cli:app"
 musicd = "musicd:main"
-music_tui = "music_tui:MusicTUI"
+
 
 [tool.setuptools]
-py-modules = ["music_cli", "musicd", "music_tui"]
+py-modules = ["music_cli", "musicd"]
