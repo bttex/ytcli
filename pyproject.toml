@@ -27,3 +27,6 @@ musicd = "musicd:main"
 
 [tool.setuptools]
 py-modules = ["music_cli", "musicd"]
+
+[tool.setuptools.package-data]
+ytcli = ["bin/*"]

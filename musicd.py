@@ -12,6 +12,7 @@ from typing import List, Optional
 from rich.console import Console
 import yt_dlp
 import mpv  # type: ignore
+import uvicorn
 
 # Adicione esta linha para garantir que o mpv.dll seja encontrado.
 # O caminho para a pasta do MPV é adicionado ao PATH do ambiente.
@@ -224,8 +225,6 @@ async def status():
 
 
 def main():
-    import uvicorn
-
     uvicorn.run("musicd:app", host="127.0.0.1", port=5000, reload=False)
 
 
