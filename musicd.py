@@ -221,3 +221,13 @@ async def add_queue(req: PlayRequest):
 @app.get("/status")
 async def status():
     return {"ok": True, "now": current_track, "queue": queue, "history": history}
+
+
+def main():
+    import uvicorn
+
+    uvicorn.run("musicd:app", host="127.0.0.1", port=5000, reload=False)
+
+
+if __name__ == "__main__":
+    main()
