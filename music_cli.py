@@ -260,6 +260,10 @@ def queue_list(ctx: typer.Context):
     api = MusicAPI(**ctx.obj)
     resp = api.get("/queue")
     items: List[Dict] = resp.get("queue", [])
+    # Adiciona a faixa atual ao início da fila para exibição
+    status_resp = api.get("/status")
+    if status_resp.get("now"):
+        items.insert(0, status_resp["now"])
     if not items:
         console.print("[dim]Fila vazia[/dim]")
         return
