@@ -5,6 +5,7 @@ Dependências: typer, rich, requests
 """
 
 import subprocess
+import sys
 import time
 import os
 from typing import Optional, List, Dict
@@ -31,10 +32,10 @@ def ensure_daemon():
         return
     except Exception:
         console.print("[yellow]🔄 Iniciando daemon...[/yellow]")
+        # Usa o entry point 'musicd' definido no pyproject.toml.
+        # É mais robusto que chamar o módulo diretamente.
         subprocess.Popen(
-            ["python3", "-m", "musicd"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            ["musicd"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
         # esperar subir
         for _ in range(10):
@@ -60,20 +61,32 @@ class MusicAPI:
     def post(self, path: str, json: dict = None):  # type: ignore
         url = f"{self.base_url}{path}"
         try:
-            resp = requests.post(url, json=json or {}, timeout=15)
+            resp = requests.post(url, json=json or {}, timeout=20)
+            resp.raise_for_status()  # Lança erro para status 4xx/5xx
             return resp.json()
-        except Exception as e:
-            console.print(f"[red]Erro de conexão com daemon: {e}[/red]")
-            raise
+        except requests.exceptions.ConnectionError:
+            console.print(
+                f"[red]❌ Erro: Não foi possível conectar ao daemon em {self.base_url}. Ele está rodando?[/red]"
+            )
+            raise typer.Exit(1)
+        except requests.exceptions.RequestException as e:
+            console.print(f"[red]❌ Erro na comunicação com o daemon: {e}[/red]")
+            raise typer.Exit(1)
 
     def get(self, path: str, params: dict = None):  # type: ignore
         url = f"{self.base_url}{path}"
         try:
-            resp = requests.get(url, params=params or {}, timeout=15)
+            resp = requests.get(url, params=params or {}, timeout=20)
+            resp.raise_for_status()
             return resp.json()
-        except Exception as e:
-            console.print(f"[red]Erro de conexão com daemon: {e}[/red]")
-            raise
+        except requests.exceptions.ConnectionError:
+            console.print(
+                f"[red]❌ Erro: Não foi possível conectar ao daemon em {self.base_url}. Ele está rodando?[/red]"
+            )
+            raise typer.Exit(1)
+        except requests.exceptions.RequestException as e:
+            console.print(f"[red]❌ Erro na comunicação com o daemon: {e}[/red]")
+            raise typer.Exit(1)
 
 
 # -------------------------------
@@ -163,6 +176,7 @@ def next(ctx: typer.Context):
 def queue_add(
     ctx: typer.Context, query: str = typer.Argument(..., help="Adicionar música à fila")
 ):
+    """Adiciona uma música ao final da fila."""
     api = MusicAPI(**ctx.obj)
     resp = api.post("/queue", {"query": query})
     if resp.get("ok"):
@@ -171,7 +185,10 @@ def queue_add(
 
 
 @app.command()
-def search(ctx: typer.Context, query: str = typer.Argument(..., help="Pesquisa no YouTube Music")):
+def search(
+    ctx: typer.Context,
+    query: str = typer.Argument(..., help="Pesquisa no YouTube Music"),
+):
     """Busca por músicas e as adiciona à fila"""
     api = MusicAPI(**ctx.obj)
     resp = api.post("/search", {"query": query})
@@ -182,7 +199,7 @@ def search(ctx: typer.Context, query: str = typer.Argument(..., help="Pesquisa n
     if not results:
         console.print("[dim]Nenhum resultado encontrado.[/dim]")
         return
-    
+
     # Exibe os resultados em uma tabela Rich
     table = Table(title="Resultados da busca")
     table.add_column("#", style="dim", width=4)
@@ -197,19 +214,33 @@ def search(ctx: typer.Context, query: str = typer.Argument(..., help="Pesquisa n
             str(t.get("duration", "—")),
         )
     console.print(table)
-    
+
     # Pede ao usuário para escolher um item
     try:
-        choice = Prompt.ask("Selecione um número para tocar/adicionar à fila", choices=[str(i) for i in range(1, len(results) + 1)])
-        selected_track = results[int(choice) - 1]
-        
-        # Usa o endpoint `/play` para tocar imediatamente
-        resp = api.post("/play", {"query": selected_track["webpage_url"]})
+        track_choice = Prompt.ask(
+            "Selecione um número",
+            choices=[str(i) for i in range(1, len(results) + 1)],
+            prompt_suffix=" (ou pressione Ctrl+C para cancelar): ",
+        ) # type: ignore
+        selected_track = results[int(track_choice) - 1]
+
+        action_choice = Prompt.ask(
+            "O que você quer fazer?",
+            choices=["play", "queue"],
+            default="play",
+        )
+        endpoint = f"/{action_choice}"
+        resp = api.post(endpoint, {"query": selected_track["webpage_url"]})
+
         if resp.get("ok"):
-            console.print("[green]▶ Tocando agora[/green]")
-            pretty_track(resp.get("track"))
+            message = (
+                "▶ Tocando agora" if action_choice == "play" else "✅ Adicionado à fila"
+            )
+            console.print(f"[green]{message}[/green]")
+            pretty_track(resp.get("track") or resp.get("item"))
     except KeyboardInterrupt:
         console.print("\n[yellow]Ação cancelada.[/yellow]")
+
 
 @app.command()
 def monitor(ctx: typer.Context):
@@ -221,18 +252,38 @@ def monitor(ctx: typer.Context):
                 resp = api.get("/status")
                 now = resp.get("now")
                 queue = resp.get("queue", [])
-                
+
                 # Renderiza o status
                 output = ""
                 if now:
                     output += f"[bold green]▶ Agora tocando[/bold green]\n"
                     # Aqui você pode usar uma função para formatar a saída
-                    output += f"🎵 [cyan]{now.get('title')}[/cyan] — [magenta]{now.get('artist')}[/magenta]\n"
+                    output += f"🎵 [cyan]{now.get('title')}[/cyan]\n   └─ [magenta]{now.get('artist')}[/magenta]\n"
                 else:
-                    output += "[dim]Nada tocando[/dim]\n"
-                
+                    output += "[bold dim]⏹ Nada tocando[/bold dim]\n"
+
+                # Se nada estiver tocando e a fila estiver vazia, pergunta por uma nova música
+                if not now and not queue:
+                    live.update(output)  # Mostra o status final
+                    live.refresh()
+                    try:
+                        # Pausa o live para não interferir com o prompt
+                        with live.console.capture():
+                            query = Prompt.ask(
+                                "\n[bold yellow]A fila acabou! Qual a próxima música?[/bold yellow] (ou pressione Ctrl+C para sair)"
+                            )
+                        if query:
+                            console.print(f"Tocando '{query}'...")
+                            api.post("/play", {"query": query})
+                            # Continua o loop para atualizar o status
+                            continue
+                    except (KeyboardInterrupt, typer.Exit):
+                        # Se o usuário cancelar, sai do monitor
+                        break
+                    except Exception:
+                        break  # Sai em caso de outro erro
                 output += f"\n[blue]Tamanho da fila:[/blue] {len(queue)}\n"
-                
+
                 # Formata a fila em uma tabela
                 if queue:
                     table = Table(title="Fila de reprodução")
@@ -246,12 +297,15 @@ def monitor(ctx: typer.Context):
                             t.get("artist", t.get("uploader", "—")),
                         )
                     output += str(table)
-                
+
                 live.update(output)
                 live.refresh()
-                time.sleep(2) # Atualiza a cada 2 segundos
+                time.sleep(2)  # Atualiza a cada 2 segundos
         except KeyboardInterrupt:
             console.print("\n[yellow]Saindo do monitor.[/yellow]")
+        except typer.Exit:
+            # Impede que a mensagem de erro da API seja mostrada ao sair do monitor
+            pass
 
 
 @app.command("queue-list")
@@ -260,10 +314,6 @@ def queue_list(ctx: typer.Context):
     api = MusicAPI(**ctx.obj)
     resp = api.get("/queue")
     items: List[Dict] = resp.get("queue", [])
-    # Adiciona a faixa atual ao início da fila para exibição
-    status_resp = api.get("/status")
-    if status_resp.get("now"):
-        items.insert(0, status_resp["now"])
     if not items:
         console.print("[dim]Fila vazia[/dim]")
         return
@@ -297,5 +347,10 @@ def status(ctx: typer.Context):
     console.print(f"[blue]Tamanho da fila:[/blue] {len(queue)}")
 
 
-if __name__ == "__main__":
+def main_cli():
+    """Ponto de entrada para o console_script."""
     app()
+
+
+if __name__ == "__main__":
+    main_cli()
