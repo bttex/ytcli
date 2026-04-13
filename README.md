@@ -1,108 +1,66 @@
-# YT Music CLI
+# YTCLI
 
-Um cliente de música CLI para YouTube, controlado por um daemon em segundo plano. Ouça suas músicas favoritas diretamente do terminal, com suporte a fila de reprodução, busca e reprodução contínua.
+Interface TUI para controlar reprodução de músicas do YouTube Music com um daemon local em segundo plano. O projeto foi simplificado para usar apenas a TUI como interface de usuário.
 
- <!-- Substitua pelo link de uma imagem/gif de exemplo -->
+## Funcionalidades
 
-## ✨ Funcionalidades
+* Busca músicas ou URLs diretamente no terminal.
+* Mostra a faixa atual, a fila e os resultados da busca.
+* Permite tocar, enfileirar, pausar, retomar, avançar e parar.
+* Inicia o daemon automaticamente quando necessário.
+* Funciona no Linux e também em outros sistemas suportados pelo Python, `mpv` e dependências do projeto.
 
-*   **Reprodução Simples**: Toque músicas do YouTube com um único comando.
-*   **Daemon em Background**: O player roda em segundo plano, liberando seu terminal.
-*   **Fila de Reprodução**: Adicione músicas a uma fila para ouvir sem interrupções.
-*   **Busca Integrada**: Procure por músicas no YouTube e escolha qual tocar.
-*   **Multiplataforma**: Compatível com Windows e Linux.
-*   **Leve**: Utiliza `mpv` para reprodução de áudio, garantindo baixo consumo de recursos.
+## Pré-requisitos
 
-## 📋 Pré-requisitos
+* Python 3.10+
+* `mpv`
 
-Antes de começar, você precisa ter os seguintes programas instalados:
+No Ubuntu/Debian:
 
-1.  **Python 3.8+**
-2.  **mpv**: Um reprodutor de mídia de linha de comando.
-    *   **Windows**: Baixe, extraia e **adicione o diretório do `mpv.exe` ao PATH do sistema**.
-    *   **Linux (Debian/Ubuntu)**: `sudo apt update && sudo apt install mpv`
-
-## 🚀 Instalação
-
-Você pode instalar o `yt-music-cli` diretamente do repositório usando `pip`.
-
-1.  **Clone o repositório:**
-    ```sh
-    git clone https://github.com/bttex/ytcli.git
-    cd ytcli
-    ```
-
-2.  **Instale o pacote:**
-    Abra um terminal (PowerShell/CMD/Bash) e execute o comando `pip` na raiz do projeto. Isso instalará o comando `music_cli` no seu sistema.
-
-    ```sh
-    pip install .
-    ```
-
-    > **Nota**: No Windows, o `pip` geralmente instala os executáveis em um diretório que já está no seu PATH. Pode ser necessário reiniciar o terminal para que o comando `music_cli` seja reconhecido.
-
-## 🎧 Como Usar
-
-Após a instalação, você pode usar o comando `music_cli` de qualquer lugar no seu terminal.
-
-O daemon será iniciado automaticamente no primeiro comando.
-
----
-
-### Comandos Principais
-
-**Tocar uma música imediatamente:**
 ```sh
-music_cli play "daft punk get lucky"
+sudo apt update && sudo apt install -y mpv python3-venv
 ```
 
-**Buscar por uma música e escolher em uma lista:**
+## Instalação
+
 ```sh
-music_cli search "red hot chili peppers"
+chmod +x install.sh
+./install.sh
 ```
 
-**Adicionar uma música à fila:**
+Ou, para desenvolvimento local:
+
 ```sh
-music_cli queue-add "gorillaz feel good inc"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .
 ```
 
-**Ver o status atual e a fila:**
+## Uso
+
+Abra a interface com:
+
 ```sh
-music_cli status
+music_tui
 ```
 
-**Listar todas as músicas na fila:**
+Na TUI, use a caixa de busca para pesquisar músicas ou colar uma URL. Depois selecione um resultado para tocar ou enfileirar.
+
+Atalhos úteis:
+
+* `q`: sair
+* `r`: atualizar status
+* `p`: pausar ou retomar
+
+## Instalação manual
+
+Se preferir instalar sem o script:
+
 ```sh
-music_cli queue-list
+pip install .
 ```
 
-**Pular para a próxima música:**
-```sh
-music_cli next
-```
+## Desenvolvimento
 
-**Pausar ou retomar a reprodução:**
-```sh
-music_cli pause
-music_cli resume
-```
-
-## 🔧 Desenvolvimento
-
-Se você deseja contribuir ou modificar o código, instale o projeto em modo "editável". Isso permite que suas alterações no código-fonte sejam refletidas imediatamente.
-
-1.  Crie e ative um ambiente virtual:
-    ```sh
-    # Windows
-    python -m venv .venv
-    .\.venv\Scripts\activate
-
-    # Linux/macOS
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
-
-2.  Instale em modo editável:
-    ```sh
-    pip install -e .
-    ```
+O fluxo recomendado para contribuir é usar o ambiente virtual local e instalar em modo editável com `pip install -e .`. Isso mantém a TUI apontando para o código em desenvolvimento.

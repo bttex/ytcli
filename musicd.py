@@ -14,9 +14,9 @@ import yt_dlp
 import mpv  # type: ignore
 import uvicorn
 
-# Adicione esta linha para garantir que o mpv.dll seja encontrado.
-# O caminho para a pasta do MPV é adicionado ao PATH do ambiente.
-os.environ["PATH"] = "C:\\mpv" + os.pathsep + os.environ["PATH"]
+# Em Windows, ajuda o carregamento da DLL do mpv quando instalada em C:\\mpv.
+if os.name == "nt":
+    os.environ["PATH"] = "C:\\mpv" + os.pathsep + os.environ.get("PATH", "")
 
 app = FastAPI(title="Music Daemon (YouTube Music)")
 
@@ -57,28 +57,47 @@ def search_list(query: str, max_results: int = 10) -> list:
         "default_search": "ytsearch",
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
-        info = ydl.extract_info(f"ytsearch{max_results}:{query}", download=False)
-        if not info or "entries" not in info or not info["entries"]:
-            return []
+        try:
+            info = ydl.extract_info(f"ytsearch{max_results}:{query}", download=False)
+            if not info or "entries" not in info or not info["entries"]:
+                return []
 
-        return [
-            {
-                "title": entry.get("title"),
-                "webpage_url": entry.get("webpage_url"),
-                "duration": entry.get("duration"),
-                "duration_str": entry.get("duration_string"),
-                "artist": entry.get("uploader"),
-                "channel": entry.get("channel"),
-                "thumbnail": entry.get("thumbnail"),
-            }
-            for entry in info["entries"]
-        ]
+            parsed_entries = []
+            for entry in info["entries"]:
+                if not isinstance(entry, dict):
+                    continue
+                if not entry.get("webpage_url"):
+                    continue
+                parsed_entries.append(
+                    {
+                        "title": entry.get("title"),
+                        "webpage_url": entry.get("webpage_url"),
+                        "duration": entry.get("duration"),
+                        "duration_str": entry.get("duration_string"),
+                        "artist": entry.get("uploader"),
+                        "channel": entry.get("channel"),
+                        "thumbnail": entry.get("thumbnail"),
+                    }
+                )
+
+            return parsed_entries
+        except yt_dlp.utils.DownloadError as exc:
+            console.log(f"Erro na busca yt-dlp: {exc}")
+            return []
+        except Exception as exc:
+            console.log(f"Falha inesperada na busca: {exc}")
+            return []
 
 
 @app.post("/search")
 async def search(req: SearchRequest):
-    results = search_list(req.query)
-    return {"ok": True, "results": results}
+    # yt-dlp e bloqueante; roda em thread para nao travar o loop async.
+    try:
+        results = await asyncio.to_thread(search_list, req.query)
+        return {"ok": True, "results": results}
+    except Exception as exc:
+        console.log(f"Falha no endpoint /search: {exc}")
+        return {"ok": False, "results": [], "error": "Falha ao buscar no YouTube"}
 
 
 # Função para buscar no YouTube
@@ -198,7 +217,8 @@ async def next_track():
 
 @app.post("/play")
 async def play(req: PlayRequest):
-    track = search_youtube(req.query)
+    # Busca em thread para manter /status responsivo durante consultas lentas.
+    track = await asyncio.to_thread(search_youtube, req.query)
     if not track:
         return {"ok": False, "error": "Música não encontrada"}
 
@@ -212,7 +232,7 @@ async def play(req: PlayRequest):
 
 @app.post("/queue")
 async def add_queue(req: PlayRequest):
-    track = search_youtube(req.query)
+    track = await asyncio.to_thread(search_youtube, req.query)
     if not track:
         return {"ok": False, "error": "Música não encontrada"}
     queue.append(track)
@@ -225,7 +245,9 @@ async def status():
 
 
 def main():
-    uvicorn.run("musicd:app", host="127.0.0.1", port=5000, reload=False)
+    host = os.getenv("MUSICD_HOST", "127.0.0.1")
+    port = int(os.getenv("MUSICD_PORT", "5000"))
+    uvicorn.run("musicd:app", host=host, port=port, reload=False)
 
 
 if __name__ == "__main__":
