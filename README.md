@@ -1,3 +1,10 @@
+![Branches](https://www.shieldcn.dev/github/branches/bttex/ytcli.svg?variant=ghost&size=sm)
+![Contributors](https://www.shieldcn.dev/github/contributors/bttex/ytcli.svg?theme=emerald&size=sm)
+![Last commit](https://www.shieldcn.dev/github/last-commit/bttex/ytcli.svg?variant=secondary&size=sm)
+![Commits](https://www.shieldcn.dev/github/commits/bttex/ytcli.svg?variant=secondary&size=sm)
+![License](https://www.shieldcn.dev/github/license/bttex/ytcli.svg?variant=branded&size=sm&mode=dark)
+
+
 # YTCLI
 
 Interface TUI para controlar reprodução de músicas do YouTube Music com um daemon local em segundo plano. O projeto foi simplificado para usar apenas a TUI como interface de usuário.
