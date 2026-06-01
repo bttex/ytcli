@@ -2,7 +2,7 @@
 ![Contributors](https://www.shieldcn.dev/github/contributors/bttex/ytcli.svg?theme=emerald&size=sm)
 ![Last commit](https://www.shieldcn.dev/github/last-commit/bttex/ytcli.svg?variant=secondary&size=sm)
 ![Commits](https://www.shieldcn.dev/github/commits/bttex/ytcli.svg?variant=secondary&size=sm)
-[![License: MIT](![badge](https://shieldcn.dev/badge/License%20MIT.svg?variant=secondary))](LICENSE)
+[![License: MIT](![badge](https://shieldcn.dev/badge/License-MIT.svg?variant=secondary))](LICENSE)
 
 
 # YTCLI
